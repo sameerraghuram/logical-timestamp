@@ -14,6 +14,7 @@ import socket
 import time
 import random
 import threading
+import sys
 
 class Process:
 
@@ -122,6 +123,9 @@ class Process:
 
         if request == 'DEPO':
             self.handle_deposit(message_dict)
+        elif request == 'EXIT':
+            print("Exitting")
+            sys.exit(0)
 
 
 
@@ -237,6 +241,25 @@ class Process:
               "Event Time: {} \n"
               "********************************".format(amount, event_balance, current_time))
 
+    def send_exit(self):
+        '''
+        Tells other processes to close. Called externally, on a keyboard close.
+        :return:
+        :rtype:
+        '''
+
+        peers = self.PEER_LIST.copy()
+        peers.remove(socket.getfqdn())
+        request_dict = {'request':'EXIT',
+                   'message': {}
+                   }
+        request_blob  = json.dumps(request_dict).encode()
+
+        for peer in peers:
+            send_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            send_sock.connect((peer,self.PORT))
+            send_sock.send(request_blob)
+
 
 
 
@@ -269,15 +292,22 @@ def do_things(process):
 if __name__ == '__main__':
     process = Process()
 
-    while True:
-        n = input("Please enter 1 to start doing things")
-        if n == '1':
-            break
-        else:
-            print("Please enter 1 ")
+    try:
 
-    do_things(process)
+        while True:
+            n = input("Please enter 1 to start doing things")
+            if n == '1':
+                break
+            else:
+                print("Please enter 1 ")
 
+        do_things(process)
+
+    except KeyboardInterrupt:
+        print("Exitting")
+        process.send_exit()
+    except ConnectionRefusedError:
+        print("Connection refused. Closing..")
 
 
 
