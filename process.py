@@ -1,3 +1,14 @@
+'''
+Write a program that computes vector clocks of events that occur in financial
+transactions. Three processes (1, 2, and 3) all start with balance = $1,000. At each
+process, one of the three events, namely withdraw, deposit, and send money to another
+process, happens once every five seconds chosen randomly. The amount of all the
+transactions must be less than $100. Display the vector clocks of each event.
+
+@author     Sameer Raghuram
+@email      sr3669@rit.edu, sameer.raghuram@gmail.com
+'''
+
 import json
 import socket
 import time
@@ -49,10 +60,10 @@ class Process:
         other processes in our vector time. Chooses
         maximum.
 
-        :param other_clock:
-        :type other_clock:
-        :return:
-        :rtype:
+        :param other_clock: Vector time clock of the other process
+        :type other_clock:  List
+        :return:    None
+        :rtype: None
         '''
         for i in range(len(self.vector_time)):
             #Ignore our pprocess index
@@ -98,9 +109,11 @@ class Process:
     def handle_connections(self, client_socket):
         '''
         Handles a new connection.
+        In our implementation, a process can only get one type of
+        message - Deposit.
 
-        :return:
-        :rtype:
+        :return:    None
+        :rtype:     None
         '''
 
         request_dict = json.loads(client_socket.recv(1024).decode())
@@ -167,6 +180,7 @@ class Process:
             random_peer_choice = peer_choice
 
         #obtain access token
+
         self.access_lock.acquire()
         if not peer_choice:
             self.increment_clock()
@@ -174,6 +188,7 @@ class Process:
         if not peer_choice:
             self.balance -= amount
         event_balance = self.balance
+
         #release access token
         self.access_lock.release()
 
@@ -228,6 +243,14 @@ class Process:
 
 
 def do_things(process):
+    '''
+    Does a withdraw, deposit or send money every 5 seconds.
+
+    :param process: Our current process
+    :type process: Process
+    :return: None
+    :rtype: None
+    '''
     while True:
         choice = random.randint(1,3)
         #Deposit money
