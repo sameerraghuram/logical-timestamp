@@ -26,6 +26,12 @@ class Process:
         self.vector_index = self.PEER_LIST.index(socket.getfqdn())
         self.balance = 1000
         self.access_lock=  threading.Lock()
+        self.PORT = 23648
+        listener = self.create_listener(('0.0.0.0',self.PORT))
+
+        #Start accepting incoming connections
+        thread = threading.Thread(target=self.accept_connections, args=[listener], daemon=True)
+        thread.start()
 
 
     def increment_clock(self):
@@ -36,6 +42,26 @@ class Process:
         :rtype: None
         '''
         self.vector_time[self.vector_index] += 1
+
+    def compare_clocks(self, other_clock):
+        '''
+        Compares the logical time registered for
+        other processes in our vector time. Chooses
+        maximum.
+
+        :param other_clock:
+        :type other_clock:
+        :return:
+        :rtype:
+        '''
+        for i in range(len(self.vector_time)):
+            #Ignore our pprocess index
+            if i == self.vector_index:
+                pass
+            #Else, choose maximum value
+            else:
+                self.vector_time[i]  = max(self.vector_time[i], other_clock[i])
+
 
 
     def create_listener(self,address):
@@ -81,9 +107,11 @@ class Process:
         request = request_dict['request']
         message_dict = request_dict['message']
 
+        if request == 'DEPO':
+            self.handle_deposit(message_dict)
 
 
-        pass
+
 
     def handle_deposit(self, message_dict):
         '''
@@ -94,10 +122,33 @@ class Process:
         :return:
         :rtype:
         '''
+        amount = message_dict['amount']
+        other_clock = message_dict['time']
+        sender = message_dict['sender']
 
-        pass
+        #acquire access token
+        self.access_lock.acquire()
 
-    def send_money(self):
+        self.increment_clock()
+        self.compare_clocks(other_clock)
+        event_time  = self.vector_time
+        self.balance += amount
+        event_balance = self.balance
+
+        #release access token
+        self.access_lock.release()
+
+        #print message
+        #Print event onto console
+        print("Deposit {} from {} \n"
+              "Event Balance: {} \n"
+              "Event Time: {} \n"
+              "********************************".format(amount, sender,
+                                                        event_balance, event_time))
+
+
+
+    def send_money(self, peer_choice = None):
         '''
         Sends an amount of money to another proccess.
         The amount is randomly chosen and is always within 100.
@@ -106,21 +157,47 @@ class Process:
         '''
         amount = random.randint(1,100)
         request = 'DEPO'
-        random_peer_choice_index = random.randint(0,len(self.PEER_LIST)-1)
-        random_peer_choice = self.PEER_LIST[random_peer_choice_index]
+        if not peer_choice:
+            peers = self.PEER_LIST.copy()
+            peers.remove(socket.getfqdn())
+            random_peer_choice_index = random.randint(0,len(peers)-1)
+            random_peer_choice = peers[random_peer_choice_index]
+
+        else:
+            random_peer_choice = peer_choice
+
         #obtain access token
         self.access_lock.acquire()
-
-        self.increment_clock()
-        current_time = self.vector_time
-        self.balance -= amount
-
+        if not peer_choice:
+            self.increment_clock()
+        current_time = self.vector_time.copy()
+        if not peer_choice:
+            self.balance -= amount
+        event_balance = self.balance
         #release access token
         self.access_lock.release()
 
         message_dict = {'amount':amount,
                         'sender':socket.getfqdn(),
-                        ''}
+                        'time':current_time}
+        request_dict = {'request':request,
+                        'message':message_dict}
+        request_blob = json.dumps(request_dict).encode()
+
+        #Send message
+        send_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        send_sock.connect((random_peer_choice,self.PORT))
+        send_sock.send(request_blob)
+        send_sock.close()
+
+        #Print event onto console
+        if not peer_choice:
+            print("Sent {} to {} \n"
+                  "Event Balance: {} \n"
+                  "Event Time: {} \n"
+                  "********************************".format(amount, random_peer_choice,
+                                                            event_balance, current_time))
+
 
 
     def withdraw_money(self):
@@ -132,6 +209,39 @@ class Process:
         '''
 
         pass
+
+
+def do_things(process):
+    while True:
+        choice = random.randint(1,2)
+        #Deposit
+        if choice == 1:
+            process.send_money(socket.getfqdn())
+        #Send money
+        else:
+            process.send_money()
+        time.sleep(5)
+
+
+
+if __name__ == '__main__':
+    process = Process()
+
+    while True:
+        n = input("Please enter 1 to start doing things")
+        if n == '1':
+            break
+        else:
+            print("Please enter 1 ")
+
+    do_things(process)
+
+
+
+
+
+
+
 
 
 
