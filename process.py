@@ -198,8 +198,6 @@ class Process:
                   "********************************".format(amount, random_peer_choice,
                                                             event_balance, current_time))
 
-
-
     def withdraw_money(self):
         '''
         Withdraws an amount of money from the account.
@@ -207,21 +205,42 @@ class Process:
         :return: None
         :rtype: None
         '''
+        amount = random.randint(1,100)
 
-        pass
+        #obtain access token
+        self.access_lock.acquire()
+        self.increment_clock()
+        current_time = self.vector_time.copy()
+        self.balance -= amount
+        event_balance = self.balance
+        #release access token
+        self.access_lock.release()
+
+        #Print event onto console
+        print("Withdraw {} \n"
+              "Event Balance: {} \n"
+              "Event Time: {} \n"
+              "********************************".format(amount, event_balance, current_time))
+
+
+
+
 
 
 def do_things(process):
     while True:
-        choice = random.randint(1,2)
-        #Deposit
+        choice = random.randint(1,3)
+        #Deposit money
         if choice == 1:
             process.send_money(socket.getfqdn())
         #Send money
-        else:
+        elif choice == 2:
             process.send_money()
-        time.sleep(5)
+        #Withdraw money
+        else:
+            process.withdraw_money()
 
+        time.sleep(5)
 
 
 if __name__ == '__main__':
